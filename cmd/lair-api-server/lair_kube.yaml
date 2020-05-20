@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: 
+  name: lair-api-server
+  labels:
+    app: lair-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lair-api
+  template:
+    metadata:
+      labels:
+        app: lair-api
+    spec:
+      containers:
+      - name: lair-api-container
+        image: local/lairapi:1
+        ports:
+        - containerPort: 80
+        - containerPort: 443

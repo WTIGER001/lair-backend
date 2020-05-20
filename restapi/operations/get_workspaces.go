@@ -7,14 +7,8 @@ package operations
 
 import (
 	"net/http"
-	"strconv"
 
-	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/go-openapi/strfmt"
-	"github.com/go-openapi/swag"
-
-	"github.com/wtiger001/lair-backend/models"
 )
 
 // GetWorkspacesHandlerFunc turns a function with the right signature into a get workspaces handler
@@ -63,73 +57,4 @@ func (o *GetWorkspaces) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	o.Context.Respond(rw, r, route.Produces, route, res)
 
-}
-
-// GetWorkspacesOKBody get workspaces o k body
-//
-// swagger:model GetWorkspacesOKBody
-type GetWorkspacesOKBody struct {
-
-	// user
-	User string `json:"user,omitempty"`
-
-	// workspaces
-	Workspaces []*models.Workspace `json:"workspaces"`
-}
-
-// Validate validates this get workspaces o k body
-func (o *GetWorkspacesOKBody) Validate(formats strfmt.Registry) error {
-	var res []error
-
-	if err := o.validateWorkspaces(formats); err != nil {
-		res = append(res, err)
-	}
-
-	if len(res) > 0 {
-		return errors.CompositeValidationError(res...)
-	}
-	return nil
-}
-
-func (o *GetWorkspacesOKBody) validateWorkspaces(formats strfmt.Registry) error {
-
-	if swag.IsZero(o.Workspaces) { // not required
-		return nil
-	}
-
-	for i := 0; i < len(o.Workspaces); i++ {
-		if swag.IsZero(o.Workspaces[i]) { // not required
-			continue
-		}
-
-		if o.Workspaces[i] != nil {
-			if err := o.Workspaces[i].Validate(formats); err != nil {
-				if ve, ok := err.(*errors.Validation); ok {
-					return ve.ValidateName("getWorkspacesOK" + "." + "workspaces" + "." + strconv.Itoa(i))
-				}
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// MarshalBinary interface implementation
-func (o *GetWorkspacesOKBody) MarshalBinary() ([]byte, error) {
-	if o == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(o)
-}
-
-// UnmarshalBinary interface implementation
-func (o *GetWorkspacesOKBody) UnmarshalBinary(b []byte) error {
-	var res GetWorkspacesOKBody
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*o = res
-	return nil
 }

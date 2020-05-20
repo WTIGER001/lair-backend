@@ -38,26 +38,16 @@ func init() {
           "application/json"
         ],
         "summary": "Returns a list workspaces for the calling user.",
+        "operationId": "getWorkspaces",
         "responses": {
           "200": {
             "description": "OK",
             "schema": {
-              "type": "object",
-              "properties": {
-                "user": {
-                  "type": "string"
-                },
-                "workspaces": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/Workspace"
-                  }
-                }
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Workspace"
               }
             }
-          },
-          "401": {
-            "description": "Unauthenticated"
           },
           "500": {
             "description": "Internal Server Error",
@@ -74,6 +64,7 @@ func init() {
           "application/json"
         ],
         "summary": "Returns a workspace",
+        "operationId": "getWorkspaceById",
         "parameters": [
           {
             "type": "string",
@@ -457,8 +448,7 @@ func init() {
         },
         "url": {
           "description": "URL to the running instance",
-          "type": "number",
-          "format": "double"
+          "type": "string"
         }
       }
     }
@@ -485,26 +475,16 @@ func init() {
           "application/json"
         ],
         "summary": "Returns a list workspaces for the calling user.",
+        "operationId": "getWorkspaces",
         "responses": {
           "200": {
             "description": "OK",
             "schema": {
-              "type": "object",
-              "properties": {
-                "user": {
-                  "type": "string"
-                },
-                "workspaces": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/definitions/Workspace"
-                  }
-                }
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/Workspace"
               }
             }
-          },
-          "401": {
-            "description": "Unauthenticated"
           },
           "500": {
             "description": "Internal Server Error",
@@ -521,6 +501,7 @@ func init() {
           "application/json"
         ],
         "summary": "Returns a workspace",
+        "operationId": "getWorkspaceById",
         "parameters": [
           {
             "type": "string",
@@ -904,8 +885,7 @@ func init() {
         },
         "url": {
           "description": "URL to the running instance",
-          "type": "number",
-          "format": "double"
+          "type": "string"
         }
       }
     }

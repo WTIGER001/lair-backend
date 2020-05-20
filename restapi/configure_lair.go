@@ -6,6 +6,8 @@ import (
 	"crypto/tls"
 	"net/http"
 
+	"github.com/rs/cors"
+
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
@@ -34,43 +36,24 @@ func configureAPI(api *operations.LairAPI) http.Handler {
 	// api.Logger = log.Printf
 
 	api.JSONConsumer = runtime.JSONConsumer()
-
 	api.JSONProducer = runtime.JSONProducer()
 
 	api.GetWorkspacesHandler = operations.GetWorkspacesHandlerFunc(internal.GetWorkspaces)
-	api.GetWorkspacesIDHandler = operations.GetWorkspacesIDHandlerFunc(internal.GetWorkspaceByID)
+	api.GetWorkspaceByIDHandler = operations.GetWorkspaceByIDHandlerFunc(internal.GetWorkspaceByID)
 	api.PostWorkpaceByIDHandler = operations.PostWorkpaceByIDHandlerFunc(internal.SaveWorkspace)
-	
+	api.DeleteWorkpaceByIDHandler = operations.DeleteWorkpaceByIDHandlerFunc(internal.DeleteWorkspace)
+
+	api.GetWorkpaceLaunchStatusHandler = operations.GetWorkpaceLaunchStatusHandlerFunc(internal.GetWorkspaceLaunchStatus)
+	api.LaunchWorkpaceByIDHandler = operations.LaunchWorkpaceByIDHandlerFunc(internal.LaunchWorkspace)
+	api.CancelLaunchHandler = operations.CancelLaunchHandlerFunc(internal.TerminateSession)
+
 	if api.PutWorkpaceByIDHandler == nil {
 		api.PutWorkpaceByIDHandler = operations.PutWorkpaceByIDHandlerFunc(func(params operations.PutWorkpaceByIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation operations.PutWorkpaceByID has not yet been implemented")
 		})
 	}
 
-	if api.CancelLaunchHandler == nil {
-		api.CancelLaunchHandler = operations.CancelLaunchHandlerFunc(func(params operations.CancelLaunchParams) middleware.Responder {
-			return middleware.NotImplemented("operation operations.CancelLaunch has not yet been implemented")
-		})
-	}
-	if api.DeleteWorkpaceByIDHandler == nil {
-		api.DeleteWorkpaceByIDHandler = operations.DeleteWorkpaceByIDHandlerFunc(func(params operations.DeleteWorkpaceByIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation operations.DeleteWorkpaceByID has not yet been implemented")
-		})
-	}
-	if api.GetWorkpaceLaunchStatusHandler == nil {
-		api.GetWorkpaceLaunchStatusHandler = operations.GetWorkpaceLaunchStatusHandlerFunc(func(params operations.GetWorkpaceLaunchStatusParams) middleware.Responder {
-			return middleware.NotImplemented("operation operations.GetWorkpaceLaunchStatus has not yet been implemented")
-		})
-	}
-	if api.LaunchWorkpaceByIDHandler == nil {
-		api.LaunchWorkpaceByIDHandler = operations.LaunchWorkpaceByIDHandlerFunc(func(params operations.LaunchWorkpaceByIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation operations.LaunchWorkpaceByID has not yet been implemented")
-		})
-	}
-	
-
 	api.PreServerShutdown = func() {}
-
 	api.ServerShutdown = func() {}
 
 	return setupGlobalMiddleware(api.Serve(setupMiddlewares))
@@ -97,5 +80,14 @@ func setupMiddlewares(handler http.Handler) http.Handler {
 // The middleware configuration happens before anything, this middleware also applies to serving the swagger.json document.
 // So this is a good place to plug in a panic handling middleware, logging and metrics
 func setupGlobalMiddleware(handler http.Handler) http.Handler {
+	// set up allowed origins using CORS middleware:
+	c := cors.New(cors.Options{
+		AllowedOrigins:     []string{"*"}, //TODO -- set appropriate origin
+		AllowedMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:     []string{"*"},
+		OptionsPassthrough: false,
+		Debug:              false,
+	})
+	handler = c.Handler(handler)
 	return handler
 }

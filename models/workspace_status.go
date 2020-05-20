@@ -27,7 +27,7 @@ type WorkspaceStatus struct {
 	Status string `json:"status,omitempty"`
 
 	// URL to the running instance
-	URL float64 `json:"url,omitempty"`
+	URL string `json:"url,omitempty"`
 }
 
 // Validate validates this workspace status

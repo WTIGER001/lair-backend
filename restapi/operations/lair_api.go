@@ -41,12 +41,6 @@ func NewLairAPI(spec *loads.Document) *LairAPI {
 
 		JSONProducer: runtime.JSONProducer(),
 
-		GetWorkspacesHandler: GetWorkspacesHandlerFunc(func(params GetWorkspacesParams) middleware.Responder {
-			return middleware.NotImplemented("operation GetWorkspaces has not yet been implemented")
-		}),
-		GetWorkspacesIDHandler: GetWorkspacesIDHandlerFunc(func(params GetWorkspacesIDParams) middleware.Responder {
-			return middleware.NotImplemented("operation GetWorkspacesID has not yet been implemented")
-		}),
 		CancelLaunchHandler: CancelLaunchHandlerFunc(func(params CancelLaunchParams) middleware.Responder {
 			return middleware.NotImplemented("operation CancelLaunch has not yet been implemented")
 		}),
@@ -55,6 +49,12 @@ func NewLairAPI(spec *loads.Document) *LairAPI {
 		}),
 		GetWorkpaceLaunchStatusHandler: GetWorkpaceLaunchStatusHandlerFunc(func(params GetWorkpaceLaunchStatusParams) middleware.Responder {
 			return middleware.NotImplemented("operation GetWorkpaceLaunchStatus has not yet been implemented")
+		}),
+		GetWorkspaceByIDHandler: GetWorkspaceByIDHandlerFunc(func(params GetWorkspaceByIDParams) middleware.Responder {
+			return middleware.NotImplemented("operation GetWorkspaceByID has not yet been implemented")
+		}),
+		GetWorkspacesHandler: GetWorkspacesHandlerFunc(func(params GetWorkspacesParams) middleware.Responder {
+			return middleware.NotImplemented("operation GetWorkspaces has not yet been implemented")
 		}),
 		LaunchWorkpaceByIDHandler: LaunchWorkpaceByIDHandlerFunc(func(params LaunchWorkpaceByIDParams) middleware.Responder {
 			return middleware.NotImplemented("operation LaunchWorkpaceByID has not yet been implemented")
@@ -98,16 +98,16 @@ type LairAPI struct {
 	//   - application/json
 	JSONProducer runtime.Producer
 
-	// GetWorkspacesHandler sets the operation handler for the get workspaces operation
-	GetWorkspacesHandler GetWorkspacesHandler
-	// GetWorkspacesIDHandler sets the operation handler for the get workspaces ID operation
-	GetWorkspacesIDHandler GetWorkspacesIDHandler
 	// CancelLaunchHandler sets the operation handler for the cancel launch operation
 	CancelLaunchHandler CancelLaunchHandler
 	// DeleteWorkpaceByIDHandler sets the operation handler for the delete workpace by Id operation
 	DeleteWorkpaceByIDHandler DeleteWorkpaceByIDHandler
 	// GetWorkpaceLaunchStatusHandler sets the operation handler for the get workpace launch status operation
 	GetWorkpaceLaunchStatusHandler GetWorkpaceLaunchStatusHandler
+	// GetWorkspaceByIDHandler sets the operation handler for the get workspace by Id operation
+	GetWorkspaceByIDHandler GetWorkspaceByIDHandler
+	// GetWorkspacesHandler sets the operation handler for the get workspaces operation
+	GetWorkspacesHandler GetWorkspacesHandler
 	// LaunchWorkpaceByIDHandler sets the operation handler for the launch workpace by Id operation
 	LaunchWorkpaceByIDHandler LaunchWorkpaceByIDHandler
 	// PostWorkpaceByIDHandler sets the operation handler for the post workpace by Id operation
@@ -180,12 +180,6 @@ func (o *LairAPI) Validate() error {
 		unregistered = append(unregistered, "JSONProducer")
 	}
 
-	if o.GetWorkspacesHandler == nil {
-		unregistered = append(unregistered, "GetWorkspacesHandler")
-	}
-	if o.GetWorkspacesIDHandler == nil {
-		unregistered = append(unregistered, "GetWorkspacesIDHandler")
-	}
 	if o.CancelLaunchHandler == nil {
 		unregistered = append(unregistered, "CancelLaunchHandler")
 	}
@@ -194,6 +188,12 @@ func (o *LairAPI) Validate() error {
 	}
 	if o.GetWorkpaceLaunchStatusHandler == nil {
 		unregistered = append(unregistered, "GetWorkpaceLaunchStatusHandler")
+	}
+	if o.GetWorkspaceByIDHandler == nil {
+		unregistered = append(unregistered, "GetWorkspaceByIDHandler")
+	}
+	if o.GetWorkspacesHandler == nil {
+		unregistered = append(unregistered, "GetWorkspacesHandler")
 	}
 	if o.LaunchWorkpaceByIDHandler == nil {
 		unregistered = append(unregistered, "LaunchWorkpaceByIDHandler")
@@ -292,14 +292,6 @@ func (o *LairAPI) initHandlerCache() {
 		o.handlers = make(map[string]map[string]http.Handler)
 	}
 
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/workspaces"] = NewGetWorkspaces(o.context, o.GetWorkspacesHandler)
-	if o.handlers["GET"] == nil {
-		o.handlers["GET"] = make(map[string]http.Handler)
-	}
-	o.handlers["GET"]["/workspaces/{id}"] = NewGetWorkspacesID(o.context, o.GetWorkspacesIDHandler)
 	if o.handlers["DELETE"] == nil {
 		o.handlers["DELETE"] = make(map[string]http.Handler)
 	}
@@ -312,6 +304,14 @@ func (o *LairAPI) initHandlerCache() {
 		o.handlers["GET"] = make(map[string]http.Handler)
 	}
 	o.handlers["GET"]["/workspaces/{id}/launch"] = NewGetWorkpaceLaunchStatus(o.context, o.GetWorkpaceLaunchStatusHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/workspaces/{id}"] = NewGetWorkspaceByID(o.context, o.GetWorkspaceByIDHandler)
+	if o.handlers["GET"] == nil {
+		o.handlers["GET"] = make(map[string]http.Handler)
+	}
+	o.handlers["GET"]["/workspaces"] = NewGetWorkspaces(o.context, o.GetWorkspacesHandler)
 	if o.handlers["POST"] == nil {
 		o.handlers["POST"] = make(map[string]http.Handler)
 	}

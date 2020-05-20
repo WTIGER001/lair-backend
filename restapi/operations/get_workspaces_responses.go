@@ -9,6 +9,8 @@ import (
 	"net/http"
 
 	"github.com/go-openapi/runtime"
+
+	"github.com/wtiger001/lair-backend/models"
 )
 
 // GetWorkspacesOKCode is the HTTP code returned for type GetWorkspacesOK
@@ -23,7 +25,7 @@ type GetWorkspacesOK struct {
 	/*
 	  In: Body
 	*/
-	Payload *GetWorkspacesOKBody `json:"body,omitempty"`
+	Payload []*models.Workspace `json:"body,omitempty"`
 }
 
 // NewGetWorkspacesOK creates GetWorkspacesOK with default headers values
@@ -33,13 +35,13 @@ func NewGetWorkspacesOK() *GetWorkspacesOK {
 }
 
 // WithPayload adds the payload to the get workspaces o k response
-func (o *GetWorkspacesOK) WithPayload(payload *GetWorkspacesOKBody) *GetWorkspacesOK {
+func (o *GetWorkspacesOK) WithPayload(payload []*models.Workspace) *GetWorkspacesOK {
 	o.Payload = payload
 	return o
 }
 
 // SetPayload sets the payload to the get workspaces o k response
-func (o *GetWorkspacesOK) SetPayload(payload *GetWorkspacesOKBody) {
+func (o *GetWorkspacesOK) SetPayload(payload []*models.Workspace) {
 	o.Payload = payload
 }
 
@@ -47,36 +49,15 @@ func (o *GetWorkspacesOK) SetPayload(payload *GetWorkspacesOKBody) {
 func (o *GetWorkspacesOK) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
 
 	rw.WriteHeader(200)
-	if o.Payload != nil {
-		payload := o.Payload
-		if err := producer.Produce(rw, payload); err != nil {
-			panic(err) // let the recovery middleware deal with this
-		}
+	payload := o.Payload
+	if payload == nil {
+		// return empty array
+		payload = make([]*models.Workspace, 0, 50)
 	}
-}
 
-// GetWorkspacesUnauthorizedCode is the HTTP code returned for type GetWorkspacesUnauthorized
-const GetWorkspacesUnauthorizedCode int = 401
-
-/*GetWorkspacesUnauthorized Unauthenticated
-
-swagger:response getWorkspacesUnauthorized
-*/
-type GetWorkspacesUnauthorized struct {
-}
-
-// NewGetWorkspacesUnauthorized creates GetWorkspacesUnauthorized with default headers values
-func NewGetWorkspacesUnauthorized() *GetWorkspacesUnauthorized {
-
-	return &GetWorkspacesUnauthorized{}
-}
-
-// WriteResponse to the client
-func (o *GetWorkspacesUnauthorized) WriteResponse(rw http.ResponseWriter, producer runtime.Producer) {
-
-	rw.Header().Del(runtime.HeaderContentType) //Remove Content-Type on empty responses
-
-	rw.WriteHeader(401)
+	if err := producer.Produce(rw, payload); err != nil {
+		panic(err) // let the recovery middleware deal with this
+	}
 }
 
 // GetWorkspacesInternalServerErrorCode is the HTTP code returned for type GetWorkspacesInternalServerError

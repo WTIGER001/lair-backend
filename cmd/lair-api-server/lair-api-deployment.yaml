@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lair
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: lair-api-write
+rules:
+- apiGroups: ["", "extensions", "apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "deletecollection"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: lair-cluster-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: edit
+subjects:
+- apiGroup: rbac.authorization.k8s.io
+  kind: User
+  name: lair
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lair-api-server
+  labels:
+    app: lair-api-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lair-api-server
+  template:
+    metadata:
+      labels:
+        app: lair-api-server
+    spec:
+      containers:
+      - name: lair-api-server
+        image: localhost:5000/lair-api:7
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lair-api-service
+spec:
+  selector:
+    app: lair-api-server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: api-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          serviceName: lair-api-service
+          servicePort: 80
+      - path: /api
+        pathType: Prefix
+        backend:
+          serviceName: lair-api-service
+          servicePort: 80

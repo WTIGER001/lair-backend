@@ -22,7 +22,7 @@ func NewGetWorkspacesParams() GetWorkspacesParams {
 // GetWorkspacesParams contains all the bound params for the get workspaces operation
 // typically these are obtained from a http.Request
 //
-// swagger:parameters GetWorkspaces
+// swagger:parameters getWorkspaces
 type GetWorkspacesParams struct {
 
 	// HTTP Request Object
