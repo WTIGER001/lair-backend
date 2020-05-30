@@ -44,7 +44,7 @@ spec:
     spec:
       containers:
       - name: lair-api-server
-        image: localhost:5000/lair-api:7
+        image: wtiger001/lair-api:7
         imagePullPolicy: Always
         ports:
         - containerPort: 80

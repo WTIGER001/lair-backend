@@ -9,10 +9,14 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	apiv1 "k8s.io/api/core/v1"
+	networkvibeta "k8s.io/api/networking/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+
+	// "encoding/json"
 
 	//
 	// Uncomment to load all auth plugins
@@ -31,25 +35,123 @@ import (
 )
 
 // StartSession - Starts a session for a given workspace
-func StartSession(workspace *models.Workspace) error {
+func StartSession(workspace *models.Workspace) (*appsv1.Deployment, error) {
 	fmt.Printf("Starting Session for %s \n", workspace.ID)
 
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 	fmt.Printf("Client Configured \n")
 
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
 	fmt.Printf("Client Created \n")
 
-	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
+	deployment := makeDeployment(workspace)
+	service := makeService(workspace)
+	ingress := makeIngress(workspace)
 
+	// Create Deployment
+	fmt.Println("Creating deployment for workspace ")
+	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
+	result, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
+	if err != nil {
+		fmt.Printf("Error: %s \n", err)
+		return nil, err
+	}
+	fmt.Printf("Created deployment %q.\n", result.GetObjectMeta().GetName())
+
+	// Create Services
+	fmt.Println("Creating service for workspace ")
+	serviceClient := clientset.CoreV1().Services(apiv1.NamespaceDefault)
+	resultSvc, err := serviceClient.Create(context.TODO(), service, metav1.CreateOptions{})
+	if err != nil {
+		fmt.Printf("Error: %s \n", err)
+		return nil, err
+	}
+	fmt.Printf("Created service %q.\n", resultSvc.GetObjectMeta().GetName())
+
+	// Create Ingress
+	fmt.Println("Creating service for workspace ")
+	ingressClient := clientset.NetworkingV1beta1().Ingresses(apiv1.NamespaceDefault)
+	resultIngress, err := ingressClient.Create(context.TODO(), ingress, metav1.CreateOptions{})
+	if err != nil {
+		fmt.Printf("Error: %s \n", err)
+		return nil, err
+	}
+	fmt.Printf("Created ingress %q.\n", resultIngress.GetObjectMeta().GetName())
+
+	return result, nil
+}
+
+func makeService(workspace *models.Workspace) *apiv1.Service {
+	service := &apiv1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: sessionName(workspace.ID) + "-service",
+		},
+		Spec: apiv1.ServiceSpec{
+			Selector: map[string]string{
+				"app": sessionName(workspace.ID),
+			},
+			Ports: []apiv1.ServicePort{
+				{
+					Name:       "http",
+					Protocol:   apiv1.ProtocolTCP,
+					Port:       80,
+					TargetPort: intstr.FromInt(8080),
+				},
+			},
+		},
+	}
+
+	return service
+}
+
+func makeIngress(workspace *models.Workspace) *networkvibeta.Ingress {
+
+	sname := sessionName(workspace.ID)
+
+	prefix := networkvibeta.PathType("Prefix")
+	path := networkvibeta.HTTPIngressPath{
+		Path:     sname,
+		PathType: &prefix,
+		Backend: networkvibeta.IngressBackend{
+			ServiceName: "/" + sname + "-service",
+			ServicePort: intstr.FromInt(80),
+		},
+	}
+
+	ruleValue := networkvibeta.HTTPIngressRuleValue{
+		Paths: []networkvibeta.HTTPIngressPath{
+			path,
+		},
+	}
+
+	rule := networkvibeta.IngressRule{}
+	rule.HTTP = &ruleValue
+
+	ingress := &networkvibeta.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: sname + "-ingress",
+			Annotations: map[string]string{
+				"traefik.ingress.kubernetes.io/rewrite-target": "/",
+			},
+		},
+		Spec: networkvibeta.IngressSpec{
+			Rules: []networkvibeta.IngressRule{
+				rule,
+			},
+		},
+	}
+	return ingress
+}
+
+func makeDeployment(workspace *models.Workspace) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: sessionName(workspace.ID),
@@ -76,8 +178,11 @@ func StartSession(workspace *models.Workspace) error {
 								{
 									Name:          "http",
 									Protocol:      apiv1.ProtocolTCP,
-									ContainerPort: 80,
+									ContainerPort: 8080,
 								},
+							},
+							Args: []string{
+								"--auth", "none",
 							},
 						},
 					},
@@ -85,17 +190,7 @@ func StartSession(workspace *models.Workspace) error {
 			},
 		},
 	}
-
-	// Create Deployment
-	fmt.Println("Creating deployment for workspace ")
-	result, err := deploymentsClient.Create(context.TODO(), deployment, metav1.CreateOptions{})
-	if err != nil {
-		fmt.Printf("Error: %s \n", err)
-		return err
-	}
-	fmt.Printf("Created deployment %q.\n", result.GetObjectMeta().GetName())
-
-	return nil
+	return deployment
 }
 
 // CheckSession - Checks the status of a session pod. First find the deployment and then find the pod...
@@ -116,24 +211,13 @@ func CheckSession(id string) (*apiv1.PodStatus, error) {
 	namespace := "default"
 	// deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 	deploymentName := sessionName(id)
-	// deployment, err := deploymentsClient.Get(context.TODO(), deploymentName,  metav1.GetOptions{})
-	// if errors.IsNotFound(err) {
-	// 	fmt.Printf("Deployment %s in namespace %s not found\n", deploymentName, namespace)
-	// 	return nil, err
-	// } else if statusError, isStatus := err.(*errors.StatusError); isStatus {
-	// 	fmt.Printf("Error getting deployment %s in namespace %s: %v\n",
-	// 	deploymentName, namespace, statusError.ErrStatus.Message)
-	// 	return nil, err
-	// } else if err != nil {
-	// 	return nil, err
-	// }
 
 	result, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
 		LabelSelector: "app=" + deploymentName,
 	})
 	if errors.IsNotFound(err) {
 		fmt.Printf("Pod %s in namespace %s not found\n", deploymentName, namespace)
-		return nil, err
+		return nil, nil
 	} else if statusError, isStatus := err.(*errors.StatusError); isStatus {
 		fmt.Printf("Error getting pod %s in namespace %s: %v\n",
 			deploymentName, namespace, statusError.ErrStatus.Message)
@@ -146,11 +230,12 @@ func CheckSession(id string) (*apiv1.PodStatus, error) {
 		return &result.Items[0].Status, nil
 	}
 
-	return nil, errs.New(" PODS != 1")
+	return nil, fmt.Errorf("NO PODS")
 }
 
 // DeleteSession - Deletes a workspace session
 func DeleteSession(id string) error {
+	fmt.Printf("Starting Delete for Workspace %s \n", id)
 	// creates the in-cluster config
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -163,12 +248,35 @@ func DeleteSession(id string) error {
 	if err != nil {
 		panic(err.Error())
 	}
-	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 
+	deploymentsClient := clientset.AppsV1().Deployments(apiv1.NamespaceDefault)
 	deletePolicy := metav1.DeletePropagationForeground
 	err = deploymentsClient.Delete(context.TODO(), deploymentName, metav1.DeleteOptions{
 		PropagationPolicy: &deletePolicy,
 	})
+
+	// Delete Services
+	fmt.Println("Deleting service for workspace ")
+	serviceClient := clientset.CoreV1().Services(apiv1.NamespaceDefault)
+	err = serviceClient.Delete(context.TODO(), sessionName(id) + "-service", metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	})
+
+	if err != nil {
+		fmt.Printf("Error: %s \n", err)
+	}
+	fmt.Printf("Deleted service.\n", )
+
+	// Create Ingress
+	fmt.Println("Creating service for workspace ")
+	ingressClient := clientset.NetworkingV1beta1().Ingresses(apiv1.NamespaceDefault)
+	err = ingressClient.Delete(context.TODO(), sessionName(id) + "-ingress", metav1.DeleteOptions{
+		PropagationPolicy: &deletePolicy,
+	})
+	if err != nil {
+		fmt.Printf("Error: %s \n", err)
+	}
+	fmt.Printf("Deleted ingress.\n")
 
 	return err
 }
@@ -181,7 +289,6 @@ func GetWorkspaceLaunchStatus(params operations.GetWorkpaceLaunchStatusParams) m
 
 	if err != nil {
 		fmt.Printf("Workspace NOT FOUND: %s \n", params.ID)
-
 		return operations.NewGetWorkpaceLaunchStatusNotFound()
 	}
 
@@ -200,27 +307,21 @@ func LaunchWorkspace(params operations.LaunchWorkpaceByIDParams) middleware.Resp
 	// Find the workspace
 	fmt.Printf("Looking for workspace %s \n", params.ID)
 
-	workspace, err := DS.Retrieve(params.ID)
+	// Launch and connect
+	status, err := LaunchAndConnect(params.ID)
 
 	if err != nil {
 		fmt.Printf("Error : %s \n", err)
 		return operations.NewLaunchWorkpaceByIDInternalServerError()
 	}
-	if workspace == nil {
-		fmt.Printf("Workspace NOT FOUND: %s \n", params.ID)
-		return operations.NewLaunchWorkpaceByIDNotFound()
+
+	rtn := &models.WorkspaceStatus{
+		ID:     params.ID,
+		Status: phaseToStr(status.Phase),
+		URL:    "http://192.168.0.182:8080",
 	}
 
-	// Workspace found
-	err = StartSession(workspace)
-	if err != nil {
-
-		fmt.Printf("Error Starting Session: %s \n", err)
-
-		return operations.NewLaunchWorkpaceByIDInternalServerError().WithPayload(err.Error())
-	}
-
-	return operations.NewLaunchWorkpaceByIDOK()
+	return operations.NewLaunchWorkpaceByIDOK().WithPayload(rtn)
 }
 
 // TerminateSession - Terminates a session
@@ -247,6 +348,51 @@ func TerminateSession(params operations.CancelLaunchParams) middleware.Responder
 	}
 
 	return operations.NewCancelLaunchOK()
+}
+
+// LaunchAndConnect = Launches a workspace and gets the status
+func LaunchAndConnect(ID string) (*apiv1.PodStatus, error) {
+	// First get the status. If there is a status then just return that status
+	fmt.Printf("Checking for Session %s \n", ID)
+	status, err := CheckSession(ID)
+
+	// An error was encountered. Likely something wrong in Kubernetes or the RBAC Setup
+	// if err != nil && err {
+	// 	return nil, err
+	// }
+
+	if status != nil {
+		return status, nil
+	}
+
+	// Find the workspace
+	fmt.Printf("Looking for workspace %s \n", ID)
+	workspace, err := DS.Retrieve(ID)
+
+	// An error was encountered. Likely something with the datastore
+	if err != nil {
+		return nil, err
+	}
+	if workspace == nil {
+		fmt.Printf("Workspace NOT FOUND: %s \n", ID)
+		return nil, errs.New("No Workspace Found")
+	}
+
+	_, err = StartSession(workspace)
+	if err != nil {
+		fmt.Printf("Error Starting Session: %s \n", err)
+		return nil, err
+	}
+
+	// First get the status. If there is a status then just return that status
+	status, err = CheckSession(ID)
+
+	// An error was encountered. Likely something wrong in Kubernetes or the RBAC Setup
+	if err != nil {
+		return nil, err
+	}
+
+	return status, nil
 }
 
 func int32Ptr(i int32) *int32 { return &i }
